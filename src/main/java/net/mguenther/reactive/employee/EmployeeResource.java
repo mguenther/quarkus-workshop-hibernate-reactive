@@ -25,7 +25,7 @@ public class EmployeeResource {
     private final ExceptionMapper exceptionMapper;
 
     @Inject
-    public EmployeeResource(final DepartmentManager departments, final ExceptionMapper exceptionMapper, EmployeeRepository repository) {
+    public EmployeeResource(final DepartmentManager departments, final ExceptionMapper exceptionMapper) {
         this.departments = departments;
         this.exceptionMapper = exceptionMapper;
     }
