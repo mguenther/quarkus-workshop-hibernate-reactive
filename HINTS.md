@@ -91,7 +91,8 @@ Additionally we need a method to search for an employee by E-Mail. Again: this c
 ```java
 public Uni<Employee> findByEmail(String email) {
     return find("email", email).firstResult();
-}`
+}
+```
 
 ```java
 @GET
