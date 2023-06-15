@@ -38,7 +38,7 @@ public class EmployeeResource {
     @Produces(MediaType.APPLICATION_JSON)
     public Uni<List<Employee>> getEmployees() {
         // Replace/extend this
-        return Employee.listAll();
+        return Uni.createFrom().item(new ArrayList());
     }
 
     @GET
