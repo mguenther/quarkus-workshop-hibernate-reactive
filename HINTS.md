@@ -21,24 +21,23 @@ public Uni<List<Employee>> getEmployees() {
 
 ## Task 1.2
 
-We can use the Panache `findById()` method to fetch the entity - this method will return the object or null, if the object does not exist. So all that's left to do is to check if the item in the Uni is null and propagate the correct Exception.
+We can use the Panache `findById()` method to fetch the entity - this method will return the object or `null`, if the object does not exist. So all that's left to do is to check if the item in the `Uni` is `null` and propagate the correct exception.
 
 ```java
 @GET
 @Path("/{employeeId}")
 @Produces(MediaType.APPLICATION_JSON)
 public Uni<Response> getEmployee(@PathParam("employeeId") final String employeeId) {
-        return Employee.findById(employeeId)
+    return Employee.findById(employeeId)
         .onItem().ifNull().failWith(() -> new EmployeeNotFoundException(employeeId))
         .onItem().transform(employee -> Response.ok(employee).build())
         .onFailure().recoverWithItem(exceptionMapper::handle);
-        }
+}
 ```
-
 
 ## Task 1.3
 
-We can use the Panache `deleteById(String id)` method to delete the entity - take care, that you will need to open a transaction, otherwise the operation will not be written to the database.
+We can use the Panache `deleteById(String id)` method to delete the entity. Take care, that you will need to open a transaction, otherwise the operation will not be written to the database.
 
 ```java
 @DELETE
@@ -46,16 +45,15 @@ We can use the Panache `deleteById(String id)` method to delete the entity - tak
 @Produces(MediaType.APPLICATION_JSON)
 public Uni<Response> deleteEmployee(@PathParam("employeeId") final String employeeId) {
     return Panache
-    .withTransaction(() -> Employee.deleteById(employeeId))
-    .map(deleted -> Response.ok().status(Response.Status.NO_CONTENT).build())
-    .onFailure().recoverWithItem(exceptionMapper::handle);
+        .withTransaction(() -> Employee.deleteById(employeeId))
+        .map(deleted -> Response.ok().status(Response.Status.NO_CONTENT).build())
+        .onFailure().recoverWithItem(exceptionMapper::handle);
 }
 ```
 
-
 ## Task 2.1
 
-That is pretty straight-forward. The only tricky part is, that we need to call different functions, depending on if our parameter lastName is null or not. This can be done as part of a transformation, where we decide with which Uni to continue. Additionally we need a method that can count entities based on the last name. This can be either done in the active record or within the repository.
+That is pretty straight-forward. The only tricky part is, that we need to call different functions, depending on if our parameter lastName is null or not. This can be done as part of a transformation, where we decide with which Uni to continue. Additionally, we need a method that can count entities based on the last name. This can be either done in the active record or within the repository.
 
 ```java
 public static Uni<Long> countByName(String name) {
@@ -81,12 +79,11 @@ public Uni<Response> getEmployeeCount(@QueryParam("lastName") final String lastN
 }
 ```
 
-
 ## Task 2.2
 
-This is quite similar to Task 2.1 - but this time we want to throw an Exception if the email is not set as part of the request. We can use the `onItem().ifNull().failWith()` syntax to achieve this - otherwise we either chain or transform to the Uni that fetches us the correct Employee (or null if this employee does not exist).
+This is quite similar to Task 2.1 - but this time we want to throw an `Exception` if the e-mail is not set as part of the request. We can use the `onItem().ifNull().failWith()` syntax to achieve this - otherwise we either chain or transform to the `Uni` that fetches us the correct `Employee` (or `null` if this `Employee` does not exist).
 
-Additionally we need a method to search for an employee by E-Mail. Again: this can be done in the active record or the repository:
+Additionally, we need a method to search for an employee by e-Mail. Again: this can be done in the active record or the repository:
 
 ```java
 public Uni<Employee> findByEmail(String email) {
@@ -108,12 +105,11 @@ public Uni<Response> getEmployeeByEmail(@QueryParam("email") final String email)
     }
 ```
 
-
 ## Task 3
 
-The problematic part is, that we need to do several things here. We need to make sure that the Employee **and** department exist, update the employee, merge the resulting entities and return the result back (or the correct error otherwise).
+The problematic part is, that we need to do several things here. We need to make sure that the `Employee` **and** `Department` exist, update the `Employee`, merge the resulting entities and return the result back (or the correct error otherwise).
 
-Additionally we need to use the `@WithTransaction` annotation to ensure that the changes will be propagated to the database. Otherwise it will return the correct entity just fine, but it will not be updated in the data store.
+Additionally, we need to use the `@WithTransaction` annotation to ensure that the changes will be propagated to the database. Otherwise, it will return the correct entity just fine, but it will not be updated in the data store.
 
 This leads to quite a long chain that can be done like this:
 
