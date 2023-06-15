@@ -1,0 +1,45 @@
+### Get all departments
+GET http://localhost:8080/departments
+
+### Add a new employee
+POST http://localhost:8080/employees
+Content-Type: application/json
+
+{ "givenName" : "Harry", "lastName": "Spotter", "email" : "harry.spotter@hogwarts.co.uk", "department": "B.M 1" }
+
+### Get all employees
+GET http://localhost:8080/employees
+
+### Get employee by ID (faulty)
+# This should return a 404
+GET http://localhost:8080/employees/does-not-exist
+
+### Get employee by ID (correct)
+# Replace theidtosearch with the id you were sent from the POST to the employees endpoint
+GET http://localhost:8080/employees/theidtosearch
+
+### Delete employee by ID
+# Should always return 204 - no matter if the id exists or not
+DELETE http://localhost:8080/employees/theidtodelete
+
+### Get count of all employees
+GET http://localhost:8080/employees/count
+
+### Get count of all employees with a certain lastName
+GET http://localhost:8080/employees/count?lastName=Spotter
+
+### Get employee by email (faulty)
+# This should return a HTTP 400, as we're missing the mandatory QueryParam email
+GET http://localhost:8080/employees/filter
+
+### Get employee by email (correct)
+# This should return the object created from the request above
+GET http://localhost:8080/employees/filter?email=harry.spotter@hogwarts.co.uk
+
+### Update an employee
+# Returns a 200 and the merged entity if the update was successful
+# Returns a 404 is the department of employeeId are invalid
+PUT http://localhost:8080/employees/theidtoupdate
+Content-Type: application/json
+
+{ "givenName" : "Harry", "lastName": "Potter", "email" : "harry.spotter@hogwarts.co.uk", "department": "B.M 1" }
