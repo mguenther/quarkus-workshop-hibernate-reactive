@@ -6,6 +6,7 @@ import jakarta.ws.rs.core.Response;
 import net.mguenther.reactive.department.DepartmentNotFoundException;
 import net.mguenther.reactive.employee.MissingParameterException;
 import net.mguenther.reactive.employee.EmployeeNotFoundException;
+import org.jboss.resteasy.reactive.RestResponse;
 
 import java.util.Map;
 
@@ -19,8 +20,8 @@ public class ExceptionMapper {
             MissingParameterException.class, Response.Status.BAD_REQUEST
     );
 
-    public Response handle(final Throwable cause) {
+    public <T> RestResponse<T> handle(final Throwable cause) {
         final var status = EXCEPTION_TO_STATUS_CODE.getOrDefault(cause.getClass(), Response.Status.INTERNAL_SERVER_ERROR);
-        return Response.status(status).build();
+        return RestResponse.status(status);
     }
 }

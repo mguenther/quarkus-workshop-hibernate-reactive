@@ -47,4 +47,12 @@ public class Employee extends PanacheEntityBase {
                     return this;
                 });
     }
+
+    public static Uni<Long> countByName(String name) {
+        return count("lastName = ?1", name);
+    }
+
+    public static Uni<Employee> findByEmail(String email) {
+        return find("email = ?1", email).singleResult();
+    }
 }

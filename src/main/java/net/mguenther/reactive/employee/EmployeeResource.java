@@ -1,7 +1,6 @@
 package net.mguenther.reactive.employee;
 
 import io.quarkus.hibernate.reactive.panache.Panache;
-import io.quarkus.hibernate.reactive.panache.PanacheEntityBase;
 import io.quarkus.hibernate.reactive.panache.common.WithTransaction;
 import io.smallrye.mutiny.Uni;
 import jakarta.enterprise.context.ApplicationScoped;
@@ -12,8 +11,8 @@ import jakarta.ws.rs.core.Response;
 import net.mguenther.reactive.ExceptionMapper;
 import net.mguenther.reactive.department.Department;
 import net.mguenther.reactive.department.DepartmentManager;
+import org.jboss.resteasy.reactive.RestResponse;
 
-import java.util.ArrayList;
 import java.util.List;
 
 
@@ -25,61 +24,63 @@ public class EmployeeResource {
 
     private final ExceptionMapper exceptionMapper;
 
-    private final EmployeeRepository repository;
-
     @Inject
     public EmployeeResource(final DepartmentManager departments, final ExceptionMapper exceptionMapper, EmployeeRepository repository) {
         this.departments = departments;
         this.exceptionMapper = exceptionMapper;
-        this.repository = repository;
     }
 
     @GET
     @Produces(MediaType.APPLICATION_JSON)
     public Uni<List<Employee>> getEmployees() {
         // Replace/extend this
-        return Uni.createFrom().item(new ArrayList());
+        return Employee.listAll();
     }
 
     @GET
     @Path("/{employeeId}")
     @Produces(MediaType.APPLICATION_JSON)
-    public Uni<Response> getEmployee(@PathParam("employeeId") final String employeeId) {
-        // Replace/extend this
-        return Uni.createFrom().failure(new EmployeeNotFoundException(employeeId))
-                .onItem().transform(employee -> Response.ok(employee).build())
+    public Uni<RestResponse<Employee>> getEmployee(@PathParam("employeeId") final String employeeId) {
+        return Employee.<Employee>findById(employeeId)
+                .onItem().ifNull().failWith(() -> new EmployeeNotFoundException(employeeId))
+                .onItem().transform(RestResponse::ok)
                 .onFailure().recoverWithItem(exceptionMapper::handle);
     }
 
     @GET
     @Path("/count")
     @Produces(MediaType.APPLICATION_JSON)
-    public Uni<Response> getEmployeeCount(@QueryParam("lastName") final String lastName) {
+    public Uni<RestResponse<Long>> getEmployeeCount(@QueryParam("lastName") final String lastName) {
         // Replace/extend this
-        return Uni.createFrom().item(0)
-                .onItem().transform(counter -> Response.ok(counter).build())
+        return Uni.createFrom().item(lastName)
+                .onItem().transformToUni(item -> (item == null)
+                        ? Employee.count()
+                        : Employee.countByName(item))
+                .onItem().transform(RestResponse::ok)
                 .onFailure().recoverWithItem(exceptionMapper::handle);
     }
 
     @GET
     @Path("/filter/")
     @Produces(MediaType.APPLICATION_JSON)
-    public Uni<Response> getEmployeeByEmail(@QueryParam("email") final String email) {
-        // Replace/extend this
-        return Uni.createFrom().failure(new EmployeeNotFoundException(email))
-                .onItem().transform(employee -> Response.ok(employee).build())
+    public Uni<RestResponse<Employee>> getEmployeeByEmail(@QueryParam("email") final String email) {
+        return Uni.createFrom().item(email)
+                .onItem().ifNull().failWith(() -> new MissingParameterException("Missing mandatory parameter E-Mail"))
+                .chain(() -> Employee.findByEmail(email))
+                .onItem().ifNull().failWith(() -> new EmployeeNotFoundException(email))
+                .onItem().transform(RestResponse::ok)
                 .onFailure().recoverWithItem(exceptionMapper::handle);
     }
 
     @POST
     @Consumes(MediaType.APPLICATION_JSON)
     @Produces(MediaType.APPLICATION_JSON)
-    public Uni<Response> createEmployee(final CreateEmployeeCommand command) {
+    public Uni<RestResponse<OutgoingEmployee>> createEmployee(final CreateEmployeeCommand command) {
         return Uni.combine()
                 .all()
                 .unis(Employee.accept(command), departments.findByName(command.getDepartment()))
-                .combinedWith(this::merge)
-                .map(outgoingEmployee -> Response.ok(outgoingEmployee).status(Response.Status.CREATED).build())
+                .combinedWith(EmployeeResource::buildOutgoingEmployee)
+                .map(outgoingEmployee -> RestResponse.status(Response.Status.CREATED, outgoingEmployee))
                 .onFailure().recoverWithItem(exceptionMapper::handle);
     }
 
@@ -87,16 +88,26 @@ public class EmployeeResource {
     @Path("/{employeeId}")
     @Consumes(MediaType.APPLICATION_JSON)
     @Produces(MediaType.APPLICATION_JSON)
-    public Uni<Response> updateEmployee(final UpdateEmployeeCommand command,
-                                        @PathParam("employeeId") String employeeId) {
-        // Replace/extend this.
-        return Uni.createFrom().failure(new EmployeeNotFoundException(employeeId))
-                .onItem().transform(outgoingEmployee -> Response.ok(outgoingEmployee).status(Response.Status.OK).build())
+    @WithTransaction
+    public Uni<RestResponse<OutgoingEmployee>> updateEmployee(final UpdateEmployeeCommand command,
+                                                              @PathParam("employeeId") String employeeId) {
+        return Uni.combine()
+                .all()
+                .unis(Employee.<Employee>findById(employeeId)
+                                .onItem().ifNull()
+                                .failWith(() -> new EmployeeNotFoundException(employeeId)),
+                        departments.findByName(command.getDepartment()))
+                .asTuple()
+                .onItem().transformToUni(tuple ->
+                        tuple.getItem1()
+                                .accept(command).onItem()
+                                .transform((updatedEmployee) -> buildOutgoingEmployee(updatedEmployee, tuple.getItem2())))
+                .onItem().transform(RestResponse::ok)
                 .onFailure().recoverWithItem(exceptionMapper::handle);
     }
 
 
-    private OutgoingEmployee merge(final Employee employee, final Department department) {
+    private static OutgoingEmployee buildOutgoingEmployee(final Employee employee, final Department department) {
         return new OutgoingEmployee(
                 employee.employeeId,
                 employee.givenName,
@@ -111,10 +122,11 @@ public class EmployeeResource {
     @DELETE
     @Path("/{employeeId}")
     @Produces(MediaType.APPLICATION_JSON)
-    public Uni<Response> deleteEmployee(@PathParam("employeeId") final String employeeId) {
+    public Uni<RestResponse<Object>> deleteEmployee(@PathParam("employeeId") final String employeeId) {
         // Replace/extend this
-        return Uni.createFrom().item(true)
-                .map(deleted -> Response.ok().status(Response.Status.NO_CONTENT).build())
+        return Panache
+                .withTransaction(() -> Employee.deleteById(employeeId))
+                .map(deleted -> RestResponse.noContent())
                 .onFailure().recoverWithItem(exceptionMapper::handle);
     }
 }
